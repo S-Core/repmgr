@@ -87,6 +87,9 @@ static void handle_sighup(PGconn **conn, t_server_type server_type);
 
 static const char * format_failover_state(FailoverState failover_state);
 
+static bool do_vip_assign(char *vip_address, char *vip_nic, char *vip_path);
+static bool do_vip_resign(char *vip_address, char *vip_nic, char *vip_path);
+
 
 void
 handle_sigint_physical(SIGNAL_ARGS)
@@ -212,6 +215,70 @@ do_physical_node_check(void)
 	}
 }
 
+/*
+ * do vip assign
+ */
+bool
+do_vip_assign(char *vip_address, char *vip_nic, char *vip_path)
+{
+    char    command[MAXLEN] = "";
+    int r;
+
+    if (*config_file_options.vip_address != '\0')
+    {
+        strncpy(vip_address, config_file_options.vip_address, MAXLEN);
+    }
+    else
+    {
+        return false;
+    }
+
+
+    if (*config_file_options.vip_nic != '\0')
+    {
+        strncpy(vip_nic, config_file_options.vip_nic, MAXLEN);
+    }
+    else
+    {
+        return false;
+    }
+
+    if (*config_file_options.vip_path != '\0')
+    {
+        strncpy(vip_path, config_file_options.vip_path, MAXLEN);
+    }
+    else
+    {
+        return false;
+    }
+
+    snprintf(command, sizeof(command), "%s add %s %s", vip_path, vip_nic , vip_address);
+
+    r = system(command);
+    if (r != 0){
+        log_notice(_("Error to bind vip address."));
+        log_error(_("vip command: %s ."), command);
+        return false;
+    }
+    return true;
+}
+
+bool
+do_vip_resign(char *vip_address, char *vip_nic, char *vip_path)
+{
+    char    command[MAXLEN] = "";
+    int r;
+
+    snprintf(command, sizeof(command), "%s del %s %s", vip_path, vip_nic , vip_address);
+
+    r = system(command);
+    if (r != 0){
+        log_notice(_("Error to unbind vip address."));
+        return true;
+    }
+    return false;
+}
+
 
 
 /*
@@ -222,6 +289,13 @@ monitor_streaming_primary(void)
 {
 	instr_time	log_status_interval_start;
 	PQExpBufferData event_details;
+
+	/* vip_default_value should be changed */
+	bool    vip_bind = false;
+	char    vip_address[MAXLEN] = "";
+	char    vip_nic[MAXLEN] = "";
+	char    vip_path[MAXLEN] = "vip.sh";
+
 
 	reset_node_voting_status();
 
@@ -262,6 +336,8 @@ monitor_streaming_primary(void)
 	INSTR_TIME_SET_CURRENT(log_status_interval_start);
 	local_node_info.node_status = NODE_STATUS_UP;
 
+	vip_bind = do_vip_assign(vip_address, vip_nic, vip_path);
+
 	while (true)
 	{
 		/*
@@ -270,6 +346,10 @@ monitor_streaming_primary(void)
 		 */
 		if (is_server_available(local_node_info.conninfo) == false)
 		{
+            if (vip_bind)
+            {
+                vip_bind = do_vip_resign(vip_address, vip_nic, vip_path);
+            }
 
 			/* local node is down, we were expecting it to be up */
 			if (local_node_info.node_status == NODE_STATUS_UP)

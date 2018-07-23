@@ -21,7 +21,7 @@ DATA = \
 REGRESS = repmgr_extension
 
 # Hacky workaround to install the binaries
-SCRIPTS_built = repmgr repmgrd
+SCRIPTS_built = repmgr repmgrd vip.sh
 
 all: \
 	repmgr \
