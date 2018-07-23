@@ -193,6 +193,10 @@ typedef struct
 
 	/* undocumented test settings */
 	int			promote_delay;
+	/* undocumented test settings */
+	char		vip_address[MAXLEN];
+	char		vip_nic[MAXLEN];
+	char		vip_path[MAXLEN];
 } t_configuration_options;
 
 /*

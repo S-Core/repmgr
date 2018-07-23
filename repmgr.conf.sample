@@ -445,3 +445,12 @@ ssh_options='-q -o ConnectTimeout=10'	# Options to append to "ssh"
 #bdr_recovery_timeout			 # If a BDR node was offline and has become available
 					 # maximum length of time in seconds to wait for the
 					 # node to reconnect to the cluster
+#------------------------------------------------------------------------------
+# VIP options
+#------------------------------------------------------------------------------
+
+#vip_address='xxx.xxx.xxx.xxx/24'        # VIP Address; TO use vip, 'ip', 'arping' binary
+                                         # can be excuted by repmgr user or group
+#vip_nic='eth0'                          # Interface name
+#vip_path='/path/to/vip_script'          # At default, vip script will be installed
+                                         # in 'postgres/bin' folder.
