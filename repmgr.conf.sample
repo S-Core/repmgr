@@ -389,8 +389,10 @@ ssh_options='-q -o ConnectTimeout=10'	# Options to append to "ssh"
 # VIP options
 #------------------------------------------------------------------------------
 
-#vip_address='xxx.xxx.xxx.xxx/24'        # VIP Address; TO use vip, 'ip', 'arping' binary
+#vip_address=xxx.xxx.xxx.xxx/24          # VIP Address; TO use vip, 'ip', 'arping' binary
                                          # can be excuted by repmgr user or group
 #vip_nic='eth0'                          # Interface name
-#vip_path='/path/to/vip_script'          # At default, vip script will be installed
+#vip_path='/path/to/vip_script'          # At default, vip script will be installed in postgres bin
+#ping_command='ping -q -c 1'             # For check network is ok, it should ping to trusted server
+#ping_address='xxx.xxx.xxx.xxx'          # trusted server address
                                          # in 'postgres/bin' folder.
