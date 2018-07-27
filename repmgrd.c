@@ -78,6 +78,11 @@ int			calculate_elapsed(instr_time start_time);
 void		update_registration(PGconn *conn);
 void		terminate(int retval);
 
+bool		check_valid_ip(char *address);
+bool		check_valid_nic(char *nic);
+bool		check_valid_script(char *nic);
+
+
 int
 main(int argc, char **argv)
 {
@@ -533,6 +538,27 @@ main(int argc, char **argv)
 		daemonize_process();
 	}
 
+    /* vip config Check */
+	if (*config_file_options.vip_address != '\0' )
+	{
+		if ( !check_valid_ip(config_file_options.vip_address) )
+		{
+			log_error(_("Please check config file. Invalid vip address"));
+			terminate(ERR_BAD_CONFIG);
+		}
+		if ( !check_valid_nic(config_file_options.vip_nic) )
+		{
+			log_error(_("Please check config file. Invalid vip Interface"));
+			terminate(ERR_BAD_CONFIG);
+		}
+		if ( !check_valid_script(config_file_options.vip_path) )
+		{
+			log_error(_("Please check config file. Invalid vip Script Path"));
+			terminate(ERR_BAD_CONFIG);
+		}
+	}
+
+
 	if (pid_file[0] != '\0')
 	{
 		check_and_create_pid_file(pid_file);
@@ -928,7 +954,7 @@ try_reconnect(PGconn **conn, t_node_info *node_info)
 	{
 		log_info(_("checking state of node %i, %i of %i attempts"),
 				 node_info->node_id, i + 1, max_attempts);
-		if (is_server_available_params(&conninfo_params) == true)
+		if (is_server_available_params(&conninfo_params) == true && do_ping_check())
 		{
 			log_notice(_("node %i has recovered, reconnecting"), node_info->node_id);
 
@@ -1050,3 +1076,63 @@ terminate(int retval)
 
 	exit(retval);
 }
+
+bool
+check_valid_ip(char *ip)
+{
+	int address[4];
+	int subnet;
+	int i;
+	int r;
+	log_notice(_("vip Address : %s"),ip);
+	r = sscanf(ip, "%d.%d.%d.%d/%d", &address[0], &address[1], &address[2], &address[3], &subnet);
+	if( r != 5 )
+	{
+		log_error(_("Invalid address format. %i"),r);
+		return false;
+	}
+	for (i = 0; i < 4; i++)
+	{
+		if (address[i] < 0 || address[i] > 255)
+		{
+			log_error(_("Invalid address number."));
+			return false;
+		}
+	}
+	if (subnet < 0 || subnet > 32)
+	{
+		log_error(_("Invalid subnet number."));
+		return false;
+	}
+	return true;
+}
+
+bool
+check_valid_nic(char *nic)
+{
+	char command[MAXLEN] = "";
+	int r;
+
+	snprintf(command, sizeof(command), "ip link show dev %s", nic);
+	r = system(command);
+	if (r != 0 )
+	{
+		return false;
+	}
+	return true;
+}
+
+bool
+check_valid_script(char *path)
+{
+	char command[MAXLEN] = "";
+	int r;
+	snprintf(command, sizeof(command), "which %s", path);
+	r = system(command);
+	if (r != 0 )
+	{
+		return false;
+	}
+	return true;
+}
+

@@ -127,7 +127,6 @@ static void execute_child_nodes_disconnect_command(NodeInfoList *db_child_node_r
 static bool do_vip_assign(char *vip_address, char *vip_nic, char *vip_path);
 static bool do_vip_resign(char *vip_address, char *vip_nic, char *vip_path);
 
-
 void
 handle_sigint_physical(SIGNAL_ARGS)
 {
@@ -259,65 +258,87 @@ do_physical_node_check(void)
 bool
 do_vip_assign(char *vip_address, char *vip_nic, char *vip_path)
 {
-    char    command[MAXLEN] = "";
-    int r;
+	char    command[MAXLEN] = "";
+	int r;
 
-    if (*config_file_options.vip_address != '\0')
-    {
-        strncpy(vip_address, config_file_options.vip_address, MAXLEN);
-    }
-    else
-    {
-        return false;
-    }
+	if (*config_file_options.vip_address != '\0')
+	{
+		strncpy(vip_address, config_file_options.vip_address, MAXLEN);
+	}
+	else
+	{
+		return false;
+	}
 
 
-    if (*config_file_options.vip_nic != '\0')
-    {
-        strncpy(vip_nic, config_file_options.vip_nic, MAXLEN);
-    }
-    else
-    {
-        return false;
-    }
+	if (*config_file_options.vip_nic != '\0')
+	{
+		strncpy(vip_nic, config_file_options.vip_nic, MAXLEN);
+	}
+	else
+	{
+		return false;
+	}
 
-    if (*config_file_options.vip_path != '\0')
-    {
-        strncpy(vip_path, config_file_options.vip_path, MAXLEN);
-    }
-    else
-    {
-        return false;
-    }
+	if (*config_file_options.vip_path != '\0')
+	{
+		strncpy(vip_path, config_file_options.vip_path, MAXLEN);
+	}
+	else
+	{
+		return false;
+	}
 
-    snprintf(command, sizeof(command), "%s add %s %s", vip_path, vip_nic , vip_address);
+	snprintf(command, sizeof(command), "%s add %s %s", vip_path, vip_nic , vip_address);
 
-    r = system(command);
-    if (r != 0){
-        log_notice(_("Error to bind vip address."));
-        log_error(_("vip command: %s ."), command);
-        return false;
-    }
-    return true;
+	r = system(command);
+	if (r != 0)
+	{
+		log_notice(_("Error to bind vip address."));
+		log_error(_("vip command: %s ."), command);
+		return false;
+	}
+	return true;
 }
 
 bool
 do_vip_resign(char *vip_address, char *vip_nic, char *vip_path)
 {
-    char    command[MAXLEN] = "";
-    int r;
+	char    command[MAXLEN] = "";
+	int r;
 
-    snprintf(command, sizeof(command), "%s del %s %s", vip_path, vip_nic , vip_address);
+	snprintf(command, sizeof(command), "%s del %s %s", vip_path, vip_nic, vip_address);
 
-    r = system(command);
-    if (r != 0){
-        log_notice(_("Error to unbind vip address."));
-        return true;
-    }
-    return false;
+	r = system(command);
+	if (r != 0)
+	{
+		log_notice(_("Error to unbind vip address."));
+		return true;
+	}
+	return false;
 }
 
+bool
+do_ping_check()
+{
+	char	command[MAXLEN] = "";
+	int	r;
 
+	if (*config_file_options.ping_command == '\0' || *config_file_options.ping_address == '\0'){
+		return true;
+	}
+
+	snprintf(command, sizeof(command), "%s %s", config_file_options.ping_command, config_file_options.ping_address);
+
+	r = system(command);
+	if (r != 0)
+	{
+		log_error(_("Unable ping to %s."), config_file_options.ping_address);
+		log_error(_("PING COMMAND: %s"), command);
+		return false;
+	}
+	return true;
+}
 
 /*
  * repmgrd running on the primary server
@@ -447,13 +468,8 @@ monitor_streaming_primary(void)
 
 		check_connection(&local_node_info, &local_conn);
 
-		if (PQstatus(local_conn) != CONNECTION_OK)
+		if (PQstatus(local_conn) != CONNECTION_OK || do_ping_check() == false)
 		{
-            if (vip_bind)
-            {
-                vip_bind = do_vip_resign(vip_address, vip_nic, vip_path);
-            }
-
 			/* local node is down, we were expecting it to be up */
 			if (local_node_info.node_status == NODE_STATUS_UP)
 			{
@@ -547,6 +563,11 @@ monitor_streaming_primary(void)
 		{
 			int			degraded_monitoring_elapsed = calculate_elapsed(degraded_monitoring_start);
 
+			if (vip_bind)
+			{
+				vip_bind = do_vip_resign(vip_address, vip_nic, vip_path);
+			}
+
 			if (config_file_options.degraded_monitoring_timeout > 0
 				&& degraded_monitoring_elapsed > config_file_options.degraded_monitoring_timeout)
 			{
@@ -573,7 +594,7 @@ monitor_streaming_primary(void)
 
 			log_debug("monitoring node in degraded state for %i seconds", degraded_monitoring_elapsed);
 
-			if (is_server_available(local_node_info.conninfo) == true)
+			if (is_server_available(local_node_info.conninfo) == true && do_ping_check())
 			{
 				local_conn = establish_db_connection(local_node_info.conninfo, false);
 
