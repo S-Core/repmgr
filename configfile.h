@@ -193,10 +193,13 @@ typedef struct
 
 	/* undocumented test settings */
 	int			promote_delay;
-	/* undocumented test settings */
+
+	/* vip settings */
 	char		vip_address[MAXLEN];
 	char		vip_nic[MAXLEN];
 	char		vip_path[MAXLEN];
+	char		ping_address[MAXLEN];
+	char		ping_command[MAXLEN];
 } t_configuration_options;
 
 /*
@@ -255,7 +258,9 @@ typedef struct
 		/* rsync/ssh settings */ \
 		 "", "", \
 		/* undocumented test settings */ \
-		0 \
+		0, \
+		/* vip settings */ \
+		"", "", "", "", ""\
  }
 
 

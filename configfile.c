@@ -440,7 +440,8 @@ _parse_config(t_configuration_options *options, ItemList *error_list, ItemList *
 	memset(options->vip_address, 0, sizeof(options->vip_address));
 	memset(options->vip_nic, 0, sizeof(options->vip_nic));
 	memset(options->vip_path, 0, sizeof(options->vip_path));
-
+	memset(options->ping_command, 0, sizeof(options->ping_command));
+	memset(options->ping_address, 0, sizeof(options->ping_address));
 
 	/*
 	 * If no configuration file available (user didn't specify and none found
@@ -849,6 +850,10 @@ parse_configuration_item(t_configuration_options *options, ItemList *error_list,
 		strncpy(options->vip_nic, value, MAXLEN);
 	else if (strcmp(name, "vip_path") == 0)
 		strncpy(options->vip_path, value, MAXLEN);
+	else if (strcmp(name, "ping_command") == 0)
+		strncpy(options->ping_command, value, MAXLEN);
+	else if (strcmp(name, "ping_address") == 0)
+		strncpy(options->ping_address, value, MAXLEN);
 
 	/*
 	 * Following parameters have been deprecated or renamed from 3.x -

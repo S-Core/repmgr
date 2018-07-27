@@ -26,5 +26,6 @@ void		monitor_streaming_standby(void);
 void		monitor_streaming_witness(void);
 
 void		handle_sigint_physical(SIGNAL_ARGS);
+bool 		do_ping_check(void);
 
 #endif							/* _REPMGRD_PHYSICAL_H_ */
