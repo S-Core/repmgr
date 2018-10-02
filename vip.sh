@@ -5,9 +5,9 @@
 
 USAGE="$0 [add/del] interface_name ip_address/prefix"
 
-# CHECK argument count 
+# CHECK argument count
 
-if [ "$#" -ne 3 ] 
+if [ "$#" -ne 3 ]
 then
 	echo $USAGE
 	exit 1
@@ -31,7 +31,7 @@ fi
 
 if [[ $(ip link show dev $2) ]]
 then
-	NIC="$2"	
+	NIC="$2"
 else
 	echo "Please check Interface name."
 	exit 1
@@ -44,13 +44,13 @@ then
 	PREFIX=$(echo "$3" | cut -d/ -f2)
 	for i in 1 2 3 4
 	do
-		if [ $(echo "$IP" |cut -d. -f$i) -gt 255 ] 
+		if [ $(echo "$IP" |cut -d. -f$i) -gt 255 ]
 		then
 			echo "Please Check IP Address"
 			exit 1
 		fi
 	done
- 	
+
 	if [ $PREFIX -gt 32 ]
 	then
 		echo "Please Check IP Address"
@@ -62,6 +62,21 @@ else
 fi
 
 # add/del IP Address to Interface
-
-sudo ip addr $TYPE $IP/$PREFIX dev $NIC label $NIC:1
-
+if [ "$TYPE" == "add" ]
+then
+	if [[ $(ip addr | grep $IP) ]]
+	then
+		echo "VIP address is already binded"
+		exit 0
+	else
+		sudo ip addr $TYPE $IP/$PREFIX dev $NIC label $NIC:1
+	fi
+else
+	if [[ $(ip addr | grep $IP) ]]
+	then
+        sudo ip addr $TYPE $IP/$PREFIX dev $NIC label $NIC:1
+	else
+		echo "VIP address is already removed"
+		exit 0
+	fi
+fi
