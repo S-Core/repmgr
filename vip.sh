@@ -5,21 +5,12 @@
 
 USAGE="$0 [add/del] interface_name ip_address/prefix"
 
-# CHECK argument count
+# CHECK argument count & first Parameter
 
-if [ "$#" -ne 3 ]
-then
-	echo $USAGE
-	exit 1
-fi
-
-
-# CHECK First Parameter
-
-if [ "$1" == "add" ]
+if [ "$#" -eq 4 -a "$1" == "add" ]
 then
 	TYPE="add"
-elif [ "$1" == "del" ]
+elif [ "$#" -eq 3 -a "$1" == "del" ]
 then
 	TYPE="del"
 else
@@ -70,11 +61,12 @@ then
 		exit 0
 	else
 		sudo ip addr $TYPE $IP/$PREFIX dev $NIC label $NIC:1
+		arping -fq -c 3 -s $IP -I $NIC $4
 	fi
 else
 	if [[ $(ip addr | grep $IP) ]]
 	then
-        sudo ip addr $TYPE $IP/$PREFIX dev $NIC label $NIC:1
+        	sudo ip addr $TYPE $IP/$PREFIX dev $NIC label $NIC:1
 	else
 		echo "VIP address is already removed"
 		exit 0

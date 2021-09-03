@@ -124,8 +124,8 @@ static void remove_child_node_record(t_child_node_info_list *nodes, int node_id)
 static void clear_child_node_info_list(t_child_node_info_list *nodes);
 static void parse_child_nodes_disconnect_command(char *parsed_command, char *template, int reporting_node_id);
 static void execute_child_nodes_disconnect_command(NodeInfoList *db_child_node_records, t_child_node_info_list *local_child_nodes);
-static bool do_vip_assign(char *vip_address, char *vip_nic, char *vip_path);
-static bool do_vip_resign(char *vip_address, char *vip_nic, char *vip_path);
+static bool do_vip_assign(void);
+static bool do_vip_resign(void);
 
 void
 handle_sigint_physical(SIGNAL_ARGS)
@@ -256,45 +256,26 @@ do_physical_node_check(void)
  * do vip assign
  */
 bool
-do_vip_assign(char *vip_address, char *vip_nic, char *vip_path)
+do_vip_assign(void)
 {
 	char    command[MAXLEN] = "";
 	int r;
 
-	if (*config_file_options.vip_address != '\0')
-	{
-		strncpy(vip_address, config_file_options.vip_address, MAXLEN);
-	}
-	else
-	{
+	if (*config_file_options.vip_address == '\0' ||
+		*config_file_options.vip_nic == '\0' ||
+		*config_file_options.vip_path == '\0')
 		return false;
-	}
 
-
-	if (*config_file_options.vip_nic != '\0')
-	{
-		strncpy(vip_nic, config_file_options.vip_nic, MAXLEN);
-	}
-	else
-	{
-		return false;
-	}
-
-	if (*config_file_options.vip_path != '\0')
-	{
-		strncpy(vip_path, config_file_options.vip_path, MAXLEN);
-	}
-	else
-	{
-		return false;
-	}
-
-	snprintf(command, sizeof(command), "%s add %s %s", vip_path, vip_nic , vip_address);
+	snprintf(command, sizeof(command), "%s add %s %s %s", 
+					config_file_options.vip_path, 
+					config_file_options.vip_nic, 
+					config_file_options.vip_address,
+					config_file_options.ping_address);
 
 	r = system(command);
 	if (r != 0)
 	{
-		log_notice(_("Error to bind vip address."));
+		log_notice(_("Fail to bind vip address."));
 		log_error(_("vip command: %s ."), command);
 		return false;
 	}
@@ -302,17 +283,25 @@ do_vip_assign(char *vip_address, char *vip_nic, char *vip_path)
 }
 
 bool
-do_vip_resign(char *vip_address, char *vip_nic, char *vip_path)
+do_vip_resign(void)
 {
 	char    command[MAXLEN] = "";
 	int r;
 
-	snprintf(command, sizeof(command), "%s del %s %s", vip_path, vip_nic, vip_address);
+	if (*config_file_options.vip_address == '\0' ||
+		*config_file_options.vip_nic == '\0' ||
+		*config_file_options.vip_path == '\0')
+		return false;
+
+	snprintf(command, sizeof(command), "%s del %s %s", 
+					config_file_options.vip_path, 
+					config_file_options.vip_nic , 
+					config_file_options.vip_address);
 
 	r = system(command);
 	if (r != 0)
 	{
-		log_notice(_("Error to unbind vip address."));
+		log_notice(_("Fail to unbind vip address."));
 		return true;
 	}
 	return false;
@@ -352,9 +341,6 @@ monitor_streaming_primary(void)
 
 	/* vip_default_value should be changed */
 	bool    vip_bind = false;
-	char    vip_address[MAXLEN] = "";
-	char    vip_nic[MAXLEN] = "";
-	char    vip_path[MAXLEN] = "vip.sh";
 
 
 	reset_node_voting_status();
@@ -455,8 +441,6 @@ monitor_streaming_primary(void)
 		}
 	}
 
-	vip_bind = do_vip_assign(vip_address, vip_nic, vip_path);
-
 	while (true)
 	{
 		/*
@@ -464,7 +448,10 @@ monitor_streaming_primary(void)
 		 * also return reason for inavailability so we can log it
 		 */
 
-		(void) connection_ping(local_conn);
+		if (monitoring_state == MS_NORMAL && vip_bind == false)
+			vip_bind = do_vip_assign();
+
+		(void)connection_ping(local_conn);
 
 		check_connection(&local_node_info, &local_conn);
 
@@ -546,10 +533,17 @@ monitor_streaming_primary(void)
 					 * to standby monitoring
 					 */
 					if (check_primary_status(NO_DEGRADED_MONITORING_ELAPSED) == false)
+					{
+						if (vip_bind)
+							vip_bind = do_vip_resign();
 						return;
+					}
 
 					goto loop;
 				}
+
+				if (vip_bind)
+					vip_bind = do_vip_resign();
 
 				monitoring_state = MS_DEGRADED;
 				INSTR_TIME_SET_CURRENT(degraded_monitoring_start);
@@ -562,11 +556,6 @@ monitor_streaming_primary(void)
 		if (monitoring_state == MS_DEGRADED)
 		{
 			int			degraded_monitoring_elapsed = calculate_elapsed(degraded_monitoring_start);
-
-			if (vip_bind)
-			{
-				vip_bind = do_vip_resign(vip_address, vip_nic, vip_path);
-			}
 
 			if (config_file_options.degraded_monitoring_timeout > 0
 				&& degraded_monitoring_elapsed > config_file_options.degraded_monitoring_timeout)
@@ -608,7 +597,11 @@ monitor_streaming_primary(void)
 					local_node_info.node_status = NODE_STATUS_UP;
 
 					if (check_primary_status(degraded_monitoring_elapsed) == false)
+					{
+						if (vip_bind)
+							vip_bind = do_vip_resign();
 						return;
+					}
 
 					goto loop;
 				}
@@ -639,7 +632,11 @@ loop:
 
 		/* check node is still primary, if not restart monitoring */
 		if (check_primary_status(NO_DEGRADED_MONITORING_ELAPSED) == false)
+		{
+			if (vip_bind)
+				vip_bind = do_vip_resign();
 			return;
+		}
 
 		/* emit "still alive" log message at regular intervals, if requested */
 		if (config_file_options.log_status_interval > 0)
@@ -664,6 +661,8 @@ loop:
 
 		if (got_SIGHUP)
 		{
+			if (vip_bind)
+				vip_bind = do_vip_resign();
 			handle_sighup(&local_conn, PRIMARY);
 		}
 
@@ -1535,6 +1534,7 @@ monitor_streaming_standby(void)
 	monitoring_state = MS_NORMAL;
 	INSTR_TIME_SET_CURRENT(log_status_interval_start);
 	upstream_node_info.node_status = NODE_STATUS_UP;
+	do_vip_resign();
 
 	while (true)
 	{
