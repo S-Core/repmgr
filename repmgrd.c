@@ -954,7 +954,8 @@ try_reconnect(PGconn **conn, t_node_info *node_info)
 	{
 		log_info(_("checking state of node %i, %i of %i attempts"),
 				 node_info->node_id, i + 1, max_attempts);
-		if (is_server_available_params(&conninfo_params) == true && do_ping_check())
+		if (is_server_available_params(&conninfo_params) == true &&
+			node_info == &local_node_info ? do_ping_check() : true )
 		{
 			log_notice(_("node %i has recovered, reconnecting"), node_info->node_id);
 
